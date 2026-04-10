@@ -1,0 +1,5 @@
+{
+  "name": "Remix: Hellycat_play",
+  "description": "A hand-drawn game where you catch a mischievous cat using WASD controls.",
+  "requestFramePermissions": []
+}
