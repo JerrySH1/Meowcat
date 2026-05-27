@@ -1,0 +1,11 @@
+name = "hellycat-api"
+main = "worker.ts"
+compatibility_date = "2025-05-27"
+
+[[kv_namespaces]]
+binding = "HELYCAT_KV"
+id = "ae7b477182b84af4beaf865cb56e0a60"
+preview_id = "ae7b477182b84af4beaf865cb56e0a60"
+
+[observability]
+enabled = true

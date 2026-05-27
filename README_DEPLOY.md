@@ -1,30 +1,91 @@
 # Deployment Guide
 
-1. Log into your Baota Panel, go to "Software Store", search for "Node.js version manager" and install it.
-2. Open Node.js version manager, install `v20.x` and set it as the command line version.
-3. Clean up the project directory to remove the conflicting `node_modules` folder:
+## Architecture
+
+```
+GitHub Pages (static frontend)  ──fetch──▶  Cloudflare Worker (API)
+                                              ├── KV (messages)
+                                              └── DashScope API (moderation)
+```
+
+---
+
+## Part 1: Cloudflare Worker (Backend API)
+
+### Prerequisites
+- Cloudflare account (free tier: 100k req/day, 1GB KV)
+
+### Setup
+
+```bash
+cd worker
+npm install
+```
+
+1. **Create KV namespace**
    ```bash
-   rm -rf node_modules package-lock.json
+   npx wrangler kv namespace create HELYCAT_KV
    ```
-4. Install dependencies:
+   Copy the output `id` into `wrangler.toml`, replacing `your-kv-namespace-id-here` in both `id` and `preview_id`.
+
+2. **Set API key secret**
    ```bash
-   npm install --registry=https://registry.npmmirror.com
+   npx wrangler secret put DASHSCOPE_API_KEY
+   # Paste: sk-8652d71debe641cfaf3d540038935479
    ```
-5. Install `tsx` globally:
+
+3. **Set default env vars (optional, defaults already in code)**
    ```bash
-   npm install -g tsx --registry=https://registry.npmmirror.com
+   npx wrangler secret put DASHSCOPE_BASE_URL
+   npx wrangler secret put DASHSCOPE_MODEL_ID
    ```
-6. Create `.env.local` and add your keys (you can do this via the Baota File Manager):
-   ```env
-   DASHSCOPE_API_KEY=sk-8652d71debe641cfaf3d540038935479
-   DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-   DASHSCOPE_MODEL_ID=qwen3-32b
+
+4. **Deploy**
+   ```bash
+   npx wrangler deploy
    ```
-7. In Baota, go to "Website" -> "Node Project" -> "Add Node Project".
-   - Project directory: `/www/wwwroot/_dnsauth.meowcat.fun`
-   - Project name: `hellycat`
-   - Start command: `tsx server.ts` (Custom Command)
-   - Port: `3000`
-8. Click "Submit" to run the server.
-9. Go to the created Node project settings -> "Domain Manager" / "Mapping", map your domain (`meowcat.fun`) to it.
-10. Refresh your browser to see the changes.
+   Note the Worker URL (e.g., `https://hellycat-api.YOUR_USERNAME.workers.dev`).
+
+---
+
+## Part 2: GitHub Pages (Frontend)
+
+1. **Update API URL** in `App.tsx`:
+   ```ts
+   const API_BASE = 'https://hellycat-api.YOUR_USERNAME.workers.dev';
+   ```
+   Replace `YOUR_USERNAME` with your Cloudflare Worker subdomain.
+
+2. **Build**
+   ```bash
+   npm run build
+   ```
+
+3. **Deploy** the `dist/` folder to GitHub Pages:
+   - Settings → Pages → Source: Deploy from a branch → select `gh-pages` or use GitHub Actions
+   - Ensure `base` in `vite.config.ts` matches your repo path (set to `/` if using custom domain)
+
+### Quick deploy script (after initial setup)
+```bash
+npm run build && npx gh-pages -d dist
+```
+
+---
+
+## API Routes
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/messages` | Fetch all messages (limit 100) |
+| POST | `/api/messages` | Submit message (body: `{text: "..."}`) |
+| GET | `/api/health` | Health check |
+
+---
+
+## Environment Variables (Worker Secrets)
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DASHSCOPE_API_KEY` | DashScope API key | Yes |
+| `DASHSCOPE_BASE_URL` | DashScope base URL | No |
+| `DASHSCOPE_MODEL_ID` | Model ID for moderation | No |

@@ -10,6 +10,8 @@ import SettingsCatAnimation from './components/SettingsCatAnimation';
 import CharityBoard from './components/CharityBoard';
 import AdminDashboard from './components/AdminDashboard';
 
+const API_BASE = 'https://hellycat-api.jerry-hellycat.workers.dev';
+
 // StartCat Component
 const StartCat: React.FC<{ meowText: string }> = ({ meowText }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -409,7 +411,7 @@ const App: React.FC = () => {
 
   const fetchMessages = async () => {
     try {
-      const res = await fetch('/api/messages');
+      const res = await fetch(`${API_BASE}/api/messages`);
       if (res.ok) {
         const data = await res.json();
         setMessages([...data].reverse()); // Show newest first
@@ -438,7 +440,7 @@ const App: React.FC = () => {
     setSendError("");
     setSendSuccess("");
     try {
-      const res = await fetch('/api/messages', {
+      const res = await fetch(`${API_BASE}/api/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: newMessage })
