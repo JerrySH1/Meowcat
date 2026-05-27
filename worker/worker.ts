@@ -62,13 +62,13 @@ async function moderateText(text: string, ai: Ai): Promise<ModerationResult> {
   });
 
   const content = result?.response;
-  if (typeof content !== 'string') {
-    throw new Error('AI moderation response is empty');
+  if (typeof content !== 'string' || !content.trim()) {
+    throw new Error(`AI response empty. Raw result: ${JSON.stringify(result)}`);
   }
 
   const parsed = extractJson(content);
   if (!parsed || typeof parsed.allow !== 'boolean') {
-    throw new Error('AI moderation JSON format invalid');
+    throw new Error(`AI JSON parse failed. Content: ${content.substring(0, 200)}`);
   }
 
   return parsed;
