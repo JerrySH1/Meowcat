@@ -7,5 +7,8 @@ binding = "HELYCAT_KV"
 id = "ae7b477182b84af4beaf865cb56e0a60"
 preview_id = "ae7b477182b84af4beaf865cb56e0a60"
 
+[ai]
+binding = "AI"
+
 [observability]
 enabled = true

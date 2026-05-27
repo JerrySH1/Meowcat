@@ -2,9 +2,7 @@
 
 interface Env {
   HELYCAT_KV: KVNamespace;
-  DASHSCOPE_API_KEY: string;
-  DASHSCOPE_BASE_URL: string;
-  DASHSCOPE_MODEL_ID: string;
+  AI: Ai;
 }
 
 interface Message {
@@ -24,6 +22,7 @@ const SUBMIT_INTERVAL_MS = 3 * 60 * 1000;
 const MAX_MESSAGES = 100;
 const MSG_PREFIX = 'msg:';
 const RATELIMIT_PREFIX = 'rate:';
+const MODERATION_MODEL = '@cf/meta/llama-3.2-3b-instruct';
 
 function countChars(text: string): number {
   let count = 0;
@@ -45,49 +44,31 @@ function extractJson(content: string): ModerationResult | null {
   }
 }
 
-async function moderateText(text: string, env: Env): Promise<ModerationResult> {
-  const baseUrl = env.DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1';
-  const modelId = env.DASHSCOPE_MODEL_ID || 'qwen3-32b';
-
-  const resp = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${env.DASHSCOPE_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: modelId,
-      enable_thinking: false,
-      temperature: 0,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content:
-            '你是留言审核器。仅输出 JSON：{"allow":boolean,"categories":string[],"reason":string}。若涉及敏感、色情、暴力、血腥、仇恨、恐怖威胁、违法犯罪煽动等不适宜公开内容，allow=false。',
-        },
-        {
-          role: 'user',
-          content: `请审核以下留言是否可以公开展示：${text}`,
-        },
-      ],
-    }),
+async function moderateText(text: string, ai: Ai): Promise<ModerationResult> {
+  const result: any = await ai.run(MODERATION_MODEL, {
+    temperature: 0,
+    max_tokens: 200,
+    messages: [
+      {
+        role: 'system',
+        content:
+          '你是留言审核器。仅输出 JSON：{"allow":boolean,"categories":string[],"reason":string}。若涉及敏感、色情、暴力、血腥、仇恨、恐怖威胁、违法犯罪煽动等不适宜公开内容，allow=false。',
+      },
+      {
+        role: 'user',
+        content: `请审核以下留言是否可以公开展示：${text}`,
+      },
+    ],
   });
 
-  if (!resp.ok) {
-    const body = await resp.text();
-    throw new Error(`DashScope API error ${resp.status}: ${body}`);
-  }
-
-  const data: any = await resp.json();
-  const content = data?.choices?.[0]?.message?.content;
+  const content = result?.response;
   if (typeof content !== 'string') {
-    throw new Error('DashScope response content is empty');
+    throw new Error('AI moderation response is empty');
   }
 
   const parsed = extractJson(content);
   if (!parsed || typeof parsed.allow !== 'boolean') {
-    throw new Error('DashScope moderation JSON format invalid');
+    throw new Error('AI moderation JSON format invalid');
   }
 
   return parsed;
@@ -221,7 +202,7 @@ export default {
           }
         }
 
-        const audit = await moderateText(normalized, env);
+        const audit = await moderateText(normalized, env.AI);
         if (!audit.allow) {
           return new Response(JSON.stringify({
             error: 'Message violates content policy and cannot be displayed',
@@ -250,8 +231,9 @@ export default {
           headers: { ...headers, 'Content-Type': 'application/json' },
         });
       } catch (e: any) {
-        console.error('POST /api/messages error:', e?.message || e);
-        return new Response(JSON.stringify({ error: 'Moderation service unavailable, please try again later' }), {
+        const detail = e?.message || String(e);
+        console.error('POST /api/messages error:', detail);
+        return new Response(JSON.stringify({ error: `Moderation service unavailable: ${detail}` }), {
           status: 503,
           headers: { ...headers, 'Content-Type': 'application/json' },
         });
