@@ -61,9 +61,9 @@ async function moderateText(text: string, ai: Ai): Promise<ModerationResult> {
     ],
   });
 
-  const content = result?.response;
+  const content = result?.choices?.[0]?.message?.content || result?.response;
   if (typeof content !== 'string' || !content.trim()) {
-    throw new Error(`AI response empty. Raw result: ${JSON.stringify(result)}`);
+    throw new Error(`AI response empty. Raw result: ${JSON.stringify(result).substring(0, 500)}`);
   }
 
   const parsed = extractJson(content);
